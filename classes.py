@@ -335,17 +335,283 @@ class Celsius:
             raise ValueError("Temperature Cannot be below absolute zero.")
         self._kelvin = __temp__kelvin__
 """CODE:
-temperature = Celsius(30)
+temperature = Celsius(0)
 print(f"Temperature: {temperature.celsius}")
-temperature.celsius = 40
+try:
+    temperature.celsius = -274.15
+except ValueError as e:
+    print(f"got value error: {e}")
+    temperature.celsius = 30
 print(f"Temperature: {temperature.celsius}")
 """
 """OUTPUT:
+Temperature: 0.0
+got value error: Temperature Cannot be below absolute zero.
 Temperature: 30.0
-Temperature: 40.0
 """
-temperature = Celsius(0)
-print(f"Temperature: {temperature.celsius}")
-temperature.celsius = -274.15
-print(f"Temperature: {temperature.celsius}")
 
+
+
+"""
+The Final Boss Challenge: The "Type-Checked Plugin System"
+
+Let's combine ABCs, Decorators, and Context Managers.
+
+The Scenario: You are building a system that runs "Jobs." Every job must follow a specific interface (Trait), register itself automatically, and log when it starts/stops.
+
+    The Interface: Create an ABC BaseJob with an abstract method run(self).
+
+    The Registry: Create a decorator @job_register that adds classes to a JOBS = {} dict.
+
+    The Context: Create a class JobLogger. When used with with, it prints "Job Started" and "Job Finished."
+
+    The Implementation: * Create a class EmailJob that inherits from BaseJob and uses the @job_register decorator.
+
+        Inside its run method, use the JobLogger context manager.
+
+Example of how the final call should look:
+
+```python
+job_instance = JOBS["EmailJob"]()
+job_instance.run()
+```
+"""
+JOBS = {}
+def job_register(job_class):
+    name = job_class.__name__
+    JOBS[name] = job_class
+    return job_class
+from abc import ABC, abstractmethod
+
+class BaseJob(ABC):
+
+    @abstractmethod
+    def run(self):
+        raise NotImplementedError("Please implement this method inside inherited classes.")
+
+class JobLogger:
+
+    def __enter__(self):
+        print("Job Started.")
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        print("Job Finished.")
+
+@job_register
+class EmailJob(BaseJob):
+    def run(self):
+        with JobLogger() as jl:
+            print("Job is running")
+
+
+"""Code:
+job_instance = JOBS["EmailJob"]()
+job_instance.run()
+"""
+"""Output:
+Job Started.
+Job is running
+Job Finished.
+"""
+
+
+"""
+
+Exercise 8: The "Immutable Configuration"
+
+The Goal: Use Dataclasses to create a configuration object that cannot be changed after creation.
+
+    Task: Create a Config dataclass.
+
+    Requirements:
+
+        Fields: db_host (str), db_port (int), and debug_mode (bool).
+
+        Make the class immutable (hint: use the frozen parameter).
+
+        Give debug_mode a default value of False.
+
+        The Test: Try to change config.db_port = 9000 after instantiation and catch the FrozenInstanceError.
+
+"""
+
+from dataclasses import dataclass, FrozenInstanceError
+
+@dataclass(frozen=True)
+class ConfigData:
+    db_host: str
+    do_port: int
+    debug_mode: bool = False
+
+"""Code:
+config = ConfigData("arcturus", 255)
+print(config)
+try:
+    config.db_port = 9000
+except FrozenInstanceError as f:
+    print(f"Got Error: {f}")
+"""
+
+"""Output:
+ConfigData(db_host='arcturus', do_port=255, debug_mode=False)
+Got Error: cannot assign to field 'db_port'
+"""
+
+"""
+Exercise 9: Dunder Methods for "Collections"
+
+In Rust, if you want to iterate over a struct, you implement IntoIterator. In Python, you implement __iter__ and __next__.
+
+    Task: Create a class Countdown.
+
+    Requirements:
+
+        __init__ takes a starting integer.
+
+        Implement __iter__ (returns self).
+
+        Implement __next__:
+
+            Decrements the number.
+
+            Returns the number.
+
+            If the number hits 0, raise StopIteration (this is how Python signals an iterator is finished, similar to returning None in a Rust Iterator trait).
+"""
+
+class Countdown:
+    def __init__(self, start: int):
+        self.value = start
+
+    def __iter__(self) -> Countdown:
+        return self
+
+    def __next__(self):
+        if self.value == 0:
+            raise StopIteration
+        else:
+            self.value -= 1
+    def __str__(self) -> str:
+        return f"Remaining: {self.value}"
+
+"""Code:
+init_value = 2
+countdown = Countdown(init_value)
+for i in range(0, init_value):
+    print(countdown)
+    next(countdown)
+try:
+    next(countdown)
+except StopIteration:
+    print("Stopped Iteration")
+"""
+"""Output:
+Remaining: 2
+Remaining: 1
+Stopped Iteration
+"""
+
+
+"""
+Exercise 10: The "JSON Mixin" (Multiple Inheritance)
+
+The Goal: Mimic "Derive" functionality using Mixins.
+
+    Task: Create a JSONMixin class.
+
+    Requirements:
+
+        Implement a method to_json(self).
+
+        Inside, import json and return json.dumps(self.__dict__).
+
+        Create a User dataclass that inherits from both JSONMixin and object.
+
+        The Test: Create a user and call user.to_json().
+"""
+class JSONMixin:
+    def to_json(self):
+        import json
+        return json.dumps(self.__dict__)
+from dataclasses import dataclass
+@dataclass(frozen = True) # Default Immutablity
+class Dataclass:
+    name: str
+    age: int
+    is_replaceable_by_ai: bool = True # Assume incompetence. Hehe
+
+class Employee(JSONMixin, Dataclass):
+    pass
+
+
+"""Code:
+ron = Employee("Ron Weasley", 20, False)
+draco = Employee("Draco Malfoy", 20)
+print(f"{ron.to_json()}\n{draco.to_json()}")
+"""
+"""Output:
+{"name": "Ron Weasley", "age": 20, "is_replaceable_by_ai": false}
+{"name": "Draco Malfoy", "age": 20, "is_replaceable_by_ai": true}
+"""
+
+"""
+Exercise 11: The "Operator Overloading" (Dunder Deep-Dive)
+
+In Rust, you implement PartialOrd and Ord for comparisons. In Python, you implement "Rich Comparison" methods.
+
+    Task: Create a Version class (like 1.0.2) that can be compared.
+
+    Requirements:
+
+        __init__ takes major, minor, patch.
+
+        Implement __lt__ (Less Than: <).
+
+        Implement __eq__ (Equality: ==).
+
+        The Logic: A version is "less than" another if major is smaller, or major is equal and minor is smaller, etc.
+
+        The Test: print(Version(1, 2, 0) > Version(1, 1, 9)) should return True.
+"""
+
+class Version:
+
+    def __init__(self, major, minor, patch):
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}"
+
+    def __lt__(self, other) -> bool:
+        sm = self.major
+        smi = self.minor
+        sp = self.patch
+        om = other.major
+        omi = other.minor
+        op = other.patch
+        if sm > om:
+            return False
+        elif sm == om and smi > omi:
+            return False
+        elif sm == om and smi == omi and sp > op:
+            return False
+        else:
+            return True
+
+    def __eq__(self, other) -> bool:
+        if self.major == other.major and self.minor == other.minor and self.patch == other.patch:
+            return True
+        else:
+            return False
+
+"""Code:
+print(Version(1, 2, 0) > Version(1, 1, 9))
+print(Version(1, 2, 0) == Version(1, 2, 0))
+"""
+
+"""Output:
+True
+True
+"""
